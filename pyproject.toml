@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=64.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "betterbuildhatmotors"
+version = "0.1.0"
+description = "Better model-based motor control for Raspberry Pi build HAT"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [{name = "Marc"}]
+keywords = ["raspberry-pi", "buildhat", "motor-control", "lego", "robotics"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "buildhat",
+    "numpy",
+    "scipy",
+]
+
+[project.optional-dependencies]
+plot = ["matplotlib"]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
