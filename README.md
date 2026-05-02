@@ -7,13 +7,13 @@ The built-in PID speed controller on the Pi build HAT is slower than the LEGO Sp
 ## Installation
 
 ```bash
-pip install betterbuildhatmotors
+pip install --system-site-packages git+https://github.com/betoule/betterbuildhatmotors.git
 ```
 
 For plotting diagnostics, also install matplotlib:
 
 ```bash
-pip install betterbuildhatmotors[plot]
+pip install --system-site-packages git+https://github.com/betoule/betterbuildhatmotors.git[plot]
 ```
 
 ## Quick Start
