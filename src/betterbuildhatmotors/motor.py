@@ -25,11 +25,12 @@ class ModelBasedDCMotorController:
         >>> motor.stop()
     """
 
-    def __init__(self, motor_port="A", ticks_per_rev=360):
+    def __init__(self, motor_port="A", ticks_per_rev=360, logging=False):
         self.motor = Motor(motor_port)
         self._log = []
         self._target_speed = 0
-
+        self.logging = logging
+    
     # ──────────────────────────────────────────────────────────────
     #  CALIBRATION & TUNING
     # ──────────────────────────────────────────────────────────────
@@ -161,7 +162,8 @@ class ModelBasedDCMotorController:
             0,
             0,
         )
-        self._log = [self.state]
+        if self.logging:
+            self._log = [self.state]
 
         def loop():
             while self._running:
@@ -172,7 +174,8 @@ class ModelBasedDCMotorController:
                     self._target_speed,
                 )
                 self.motor.pwm(self.state[4])
-                self._log.append(self.state)
+                if self.logging:
+                    self._log.append(self.state)
                 time.sleep(0.005)
 
         self._thread = threading.Thread(target=loop, daemon=True)
