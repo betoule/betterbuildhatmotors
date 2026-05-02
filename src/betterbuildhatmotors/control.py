@@ -47,10 +47,10 @@ def control(state, new_position, params, target_speed):
     )
     now = time.perf_counter()
     new_error = pos_estimate - new_position
-    if target_speed == old_target:
-        load_estimate += 50.0 * new_error
-    else:
-        load_estimate = 0.0
+    #if target_speed == old_target:
+    load_estimate += 50.0 * new_error
+    #else:
+    #    load_estimate = 0.0
     params["load"] = load_estimate
     new_pwm = ff_command(speed_estimate, target_speed, 0.01, params)
     pred = model(new_position, speed_estimate, new_pwm, 0.01, params)
