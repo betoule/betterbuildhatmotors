@@ -24,7 +24,7 @@ def plot_log(data):
     omega_truth = savgol_filter(
         data["pos"], window_length=10, polyorder=2, deriv=1, delta=np.diff(t).mean()
     )
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
     ax1.plot(t[1:], speed, "k,", label="dpos", linewidth=1.5)
     ax1.plot(t, omega_truth, "b-", label="speed", linewidth=1.5)
     ax1.plot(t, data["target_speed"], "k--", label="target")
@@ -33,10 +33,13 @@ def plot_log(data):
     ax1.grid(True)
 
     ax2.plot(t, data["pwm"], "b-", label="PWM Command", linewidth=1.5)
-    ax2.set_xlabel("Time (s)")
     ax2.set_ylabel("PWM (-1 to 1)")
     ax2.legend()
     ax2.grid(True)
+
+    ax3.plot(t, data['pos'], 'b', label='Position (ticks)')
+    ax3.set_ylabel("Position [ticks]") 
+    ax3.set_xlabel("Time (s)")
     plt.tight_layout()
     plt.show()
 

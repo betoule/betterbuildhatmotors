@@ -9,7 +9,129 @@ import scipy.optimize
 from buildhat import Motor
 
 from .control import model, control
+import math
 
+def get_position_at_time(
+    start_pos,
+    target_pos,
+    elapsed_time,
+    max_speed=360,
+    max_accel=100,
+    max_decel=100,
+):
+    """
+    Returns the exact target position at a given elapsed time for a 
+    trapezoidal or triangular velocity profile.
+    
+    Args:
+        start_pos: Position at t=0
+        target_pos: Final target position
+        elapsed_time: Time since motion started (seconds)
+        max_speed: Maximum velocity magnitude (units/s)
+        max_accel: Maximum acceleration magnitude (units/s²)
+        max_decel: Maximum deceleration magnitude (units/s²)
+        
+    Returns:
+        Target position at elapsed_time
+    """
+    if max_speed <= 0 or max_accel <= 0 or max_decel <= 0:
+        raise ValueError("Speed, acceleration, and deceleration must be positive.")
+        
+    dist = abs(target_pos - start_pos)
+    if dist < 1e-12:
+        return start_pos
+        
+    direction = 1.0 if target_pos > start_pos else -1.0
+    
+    # Check if we can reach max_speed (trapezoidal) or only triangle
+    d_acc_max = max_speed**2 / (2 * max_accel)
+    d_dec_max = max_speed**2 / (2 * max_decel)
+    
+    if d_acc_max + d_dec_max <= dist:
+        # Trapezoidal profile
+        v_max = max_speed
+        t_acc = v_max / max_accel
+        t_dec = v_max / max_decel
+        t_const = (dist - d_acc_max - d_dec_max) / v_max
+    else:
+        # Triangular profile
+        v_max = math.sqrt(2 * max_accel * max_decel * dist / (max_accel + max_decel))
+        t_acc = v_max / max_accel
+        t_dec = v_max / max_decel
+        t_const = 0.0
+        
+    # Actual distances covered in each phase
+    d_acc = 0.5 * max_accel * t_acc**2
+    d_dec = 0.5 * max_decel * t_dec**2
+    t_total = t_acc + t_const + t_dec
+    
+    # Clamp time to trajectory bounds (prevents NaN/out-of-bounds)
+    t = max(0.0, min(elapsed_time, t_total))
+    
+    # Position calculation per phase
+    if t <= t_acc:
+        # Acceleration phase
+        s = 0.5 * max_accel * t**2
+        speed = max_accel * t
+    elif t <= t_acc + t_const:
+        # Constant velocity phase
+        s = d_acc + v_max * (t - t_acc)
+        speed = v_max
+    else:
+        # Deceleration phase
+        t_dec_phase = t - (t_acc + t_const)
+        s = d_acc + v_max * t_const + v_max * t_dec_phase - 0.5 * max_decel * t_dec_phase**2
+        speed = v_max - max_decel * t_dec_phase
+    return start_pos + s * direction, speed * direction
+
+def get_velocity_at_position(
+    current_pos,
+    start_pos,
+    target_pos,
+    max_speed,
+    max_accel,
+    max_decel
+):
+    """
+    Returns the target velocity the motor should have at current_pos
+    to follow a trapezoidal/triangular velocity profile.
+    
+    Args:
+        current_pos: Current position of the motor
+        start_pos: Starting position of the trajectory
+        target_pos: Target position of the trajectory
+        max_speed: Maximum allowed speed (units/time)
+        max_accel: Maximum acceleration (units/time²)
+        max_decel: Maximum deceleration (units/time²)
+        
+    Returns:
+        Target velocity at current_pos (sign indicates direction)
+    """
+    if max_speed <= 0 or max_accel <= 0 or max_decel <= 0:
+        raise ValueError("Speed, acceleration, and deceleration must be positive.")
+        
+    dist = abs(target_pos - start_pos)
+    if dist < 1e-12:
+        return 0.0
+        
+    direction = 1.0 if target_pos > start_pos else -1.0
+    
+    # Distance traveled from start
+    s = abs(current_pos - start_pos)
+    
+    # Clamp to trajectory bounds to gracefully handle overshoot/undershoot
+    s_clamped = max(0.0, min(s, dist))
+    
+    # Velocity constrained by acceleration from start
+    v_acc = (2.0 * max_accel * s_clamped) * 0.5
+    
+    # Velocity constrained by deceleration to stop exactly at target
+    v_dec = (2.0 * max_decel * (dist - s_clamped)) * 0.5
+    
+    # The actual velocity is limited by the tightest constraint
+    v_magnitude = min(v_acc, v_dec, max_speed)
+    
+    return direction * v_magnitude
 
 class ModelBasedDCMotorController:
     """Drop-in replacement for buildhat Motor with better speed control.
@@ -176,6 +298,20 @@ class ModelBasedDCMotorController:
                 self.motor.pwm(self.state[4])
                 if self.logging:
                     self._log.append(self.state)
+                if self._target_position is not None:
+                    if abs(self._target_position - self.state[1]) < 1:
+                        self._target_speed=0
+                        self._target_position = None
+                    else:
+                        tpos, tspeed = get_position_at_time(
+                            self._start_position,
+                            self._target_position,
+                            self.state[0] - self._start_time + 0.01,
+                            self._traj_speed,
+                            self._accel,
+                            self._accel,
+                        )
+                        self._target_speed = tspeed - (self.state[2] - tpos) * 1.
                 time.sleep(0.005)
 
         self._thread = threading.Thread(target=loop, daemon=True)
@@ -194,6 +330,17 @@ class ModelBasedDCMotorController:
         Call after start_control_loop() to change speed on the fly.
         """
         self._target_speed = speed
+        self._target_position = None
+
+    def goto(self, target, speed=360, accel=300):
+        self._start_position = self.state[1]
+        self._target_position = self.state[1] + target
+        self._start_time = self.state[0]
+        self._accel=accel
+        self._traj_speed = speed
+    def wait(self):
+        while self._target_position is not None:
+            time.sleep(0.02)
 
     def run_test(self, target_speeds, duration=2.0):
         """Run a step-response test through a sequence of speeds.

@@ -34,6 +34,7 @@ motor.start_control_loop()
 motor.set_speed(360)   # spin at 360 ticks/s
 # ... do stuff ...
 motor.set_speed(0)     # stop
+motor.goto(360, speed=360, accel=1200) # Perform a full rotation
 motor.stop()
 ```
 
