@@ -27,14 +27,18 @@ from betterbuildhatmotors import ModelBasedDCMotorController
 motor = ModelBasedDCMotorController('A')
 
 # First time: auto-tune identifies your motor parameters
-motor.autotune()
+# Store the result in a file. If the file already exists 
+# the parameters are directly loaded
+motor.autotune('calibration.npy')
 
 # Now control speed (in ticks/s)
 motor.start_control_loop()
 motor.set_speed(360)   # spin at 360 ticks/s
-# ... do stuff ...
 motor.set_speed(0)     # stop
 motor.goto(360, speed=360, accel=1200) # Perform a full rotation
+motor.wait() # Wait the move completion
+# ... do stuff ...
+# In the end stop the control loop (also stop the motors)
 motor.stop()
 ```
 
