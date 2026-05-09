@@ -250,7 +250,7 @@ class ModelBasedDCMotorController:
                 if self.logging:
                     self._log.append(self.state)
                 if self._target_position is not None:
-                    if abs(self._target_position - self.state[1]) < 1:
+                    if abs(self._target_position - self.state[1]) < 3:
                         self._target_speed=0
                         self._target_position = None
                     else:
